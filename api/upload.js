@@ -1,3 +1,10 @@
+export const config = {
+  runtime: "nodejs",
+  api: {
+    bodyParser: false,
+  },
+};
+
 import multer from "multer";
 import OpenAI from "openai";
 import fs from "fs";
