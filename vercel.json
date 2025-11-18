@@ -1,8 +1,9 @@
 {
   "functions": {
     "api/upload.js": {
-      "maxDuration": 30,
-      "memory": 1024
+      "runtime": "nodejs18.x",
+      "maxDuration": 30
     }
   }
 }
+
