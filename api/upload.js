@@ -39,7 +39,7 @@ module.exports = async function handler(req, res) {
             role: "user",
             content: [
               { type: "text", text: "Analyze this file." },
-              { type: "input_file", input_file: fileStream }
+              { type: "file", file: fileStream }
             ]
           }
         ]
