@@ -8,7 +8,7 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: "Only POST allowed" });
   }
 
-  // Set up multer
+  // Multer to store file in /tmp (Vercel's temp directory)
   const upload = multer({ dest: "/tmp" }).single("file");
 
   upload(req, res, async function (err) {
@@ -17,7 +17,6 @@ module.exports = async function handler(req, res) {
     }
 
     try {
-      // Make sure file exists
       if (!req.file || !req.file.path) {
         return res.status(400).json({ error: "No file received" });
       }
@@ -26,15 +25,19 @@ module.exports = async function handler(req, res) {
         apiKey: process.env.OPENAI_API_KEY
       });
 
-      const fileStream = fs.createReadStream(req.file.path);
+      const fileBytes = fs.readFileSync(req.file.path);
 
-      // 1️⃣ Upload file to OpenAI first
+      // 1️⃣ Upload file to OpenAI using ACTUAL file metadata
       const uploaded = await client.files.create({
-        file: fileStream,
+        file: {
+          file_name: req.file.originalname || "uploaded_file",
+          content: fileBytes,
+          content_type: req.file.mimetype || "application/octet-stream"
+        },
         purpose: "assistants"
       });
 
-      // 2️⃣ Send file_id to Chat API
+      // 2️⃣ Use file_id in Chat API
       const result = await client.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
