@@ -7,9 +7,13 @@ const upload = multer({
   fileFilter: (req, file, cb) => {
     const allowed = [
       "text/csv",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // XLSX
-      "application/vnd.ms-excel", // XLS
-      "application/pdf"
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-excel",
+      "application/pdf",
+      "application/zip",
+      "application/octet-stream",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     ];
     if (!allowed.includes(file.mimetype)) {
       return cb(new Error("Unsupported file type: " + file.mimetype));
@@ -27,7 +31,6 @@ module.exports = async function handler(req, res) {
     if (err) {
       return res.status(400).json({ error: err.message });
     }
-
     if (!req.file) {
       return res.status(400).json({ error: "No file received" });
     }
@@ -35,23 +38,22 @@ module.exports = async function handler(req, res) {
     try {
       const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-      // 1️⃣ Upload file to OpenAI
+      // 1. Upload file
       const fileUpload = await client.files.create({
         purpose: "assistants",
         file: fs.createReadStream(req.file.path)
       });
 
-      // 2️⃣ Ask OpenAI to analyze the file
+      // 2. Request analysis using new Responses API
       const response = await client.responses.create({
-        model: "gpt-4.1-mini",      
-        input: [
+        model: "gpt-5.1-mini",
+        messages: [
           {
-            type: "input_text",
-            text: "Analyze this CSV or Excel file. Summarize columns, data quality, patterns, anomalies, and insights."
-          },
-          {
-            type: "input_file",
-            file_id: fileUpload.id
+            role: "user",
+            content: [
+              { type: "text", text: "Analyze this CSV/Excel file." },
+              { type: "file", file_id: fileUpload.id }
+            ]
           }
         ]
       });
