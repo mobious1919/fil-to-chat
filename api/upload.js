@@ -7,13 +7,9 @@ const upload = multer({
   fileFilter: (req, file, cb) => {
     const allowed = [
       "text/csv",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
-      "application/vnd.ms-excel", // .xls
-      "application/pdf",
-      "application/zip",
-      "application/octet-stream",
-      "application/msword",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // XLSX
+      "application/vnd.ms-excel", // XLS
+      "application/pdf"
     ];
     if (!allowed.includes(file.mimetype)) {
       return cb(new Error("Unsupported file type: " + file.mimetype));
@@ -45,22 +41,17 @@ module.exports = async function handler(req, res) {
         file: fs.createReadStream(req.file.path)
       });
 
-      // 2️⃣ Request analysis from GPT-4.1 or GPT-5.1
+      // 2️⃣ Ask OpenAI to analyze the file
       const response = await client.responses.create({
-        model: "gpt-4o-mini",  
+        model: "gpt-4.1-mini",      
         input: [
           {
-            role: "user",
-            content: [
-              {
-                type: "input_text",
-                text: "Analyze this CSV or Excel file in detail."
-              },
-              {
-                type: "input_file",
-                input_file_id: fileUpload.id
-              }
-            ]
+            type: "input_text",
+            text: "Analyze this CSV or Excel file. Summarize columns, data quality, patterns, anomalies, and insights."
+          },
+          {
+            type: "input_file",
+            file_id: fileUpload.id
           }
         ]
       });
