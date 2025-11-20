@@ -7,13 +7,9 @@ const upload = multer({
   fileFilter: (req, file, cb) => {
     const allowed = [
       "text/csv",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "application/vnd.ms-excel",
-      "application/pdf",
-      "application/zip",
-      "application/octet-stream",
-      "application/msword",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+      "application/vnd.ms-excel", // .xls
+      "application/pdf"
     ];
     if (!allowed.includes(file.mimetype)) {
       return cb(new Error("Unsupported file type: " + file.mimetype));
@@ -31,6 +27,7 @@ module.exports = async function handler(req, res) {
     if (err) {
       return res.status(400).json({ error: err.message });
     }
+
     if (!req.file) {
       return res.status(400).json({ error: "No file received" });
     }
@@ -38,21 +35,27 @@ module.exports = async function handler(req, res) {
     try {
       const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-      // 1. Upload file
-      const fileUpload = await client.files.create({
+      // STEP 1 — Upload file to OpenAI
+      const uploadedFile = await client.files.create({
         purpose: "assistants",
         file: fs.createReadStream(req.file.path)
       });
 
-      // 2. Request analysis using new Responses API
+      // STEP 2 — Create a response request using GPT-4.1
       const response = await client.responses.create({
-        model: "gpt-5.1-mini",
-        messages: [
+        model: "gpt-4.1",
+        input: [
           {
             role: "user",
             content: [
-              { type: "text", text: "Analyze this CSV/Excel file." },
-              { type: "file", file_id: fileUpload.id }
+              {
+                type: "input_text",
+                text: "Analyze this file (CSV or Excel) and produce a detailed summary."
+              },
+              {
+                type: "input_file",
+                file_id: uploadedFile.id
+              }
             ]
           }
         ]
@@ -60,8 +63,8 @@ module.exports = async function handler(req, res) {
 
       return res.status(200).json({
         status: "success",
-        file_id: fileUpload.id,
-        result: response.output_text
+        file_id: uploadedFile.id,
+        output: response.output_text
       });
 
     } catch (error) {
