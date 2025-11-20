@@ -1,40 +1,41 @@
 const multer = require("multer");
-const OpenAI = require("openai");
 const fs = require("fs");
+const OpenAI = require("openai");
 
-module.exports = async function handler(req, res) {
+const upload = multer({ dest: "/tmp" }).single("file");
+
+module.exports = (req, res) => {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Only POST allowed" });
   }
 
-  const upload = multer({ dest: "/tmp/" }).single("file");
-
-  upload(req, res, async function (err) {
+  upload(req, res, async (err) => {
     if (err) {
       return res.status(500).json({ error: "Upload error: " + err.message });
     }
 
+    if (!req.file) {
+      return res.status(400).json({ error: "No file received" });
+    }
+
     try {
       const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-      const fileStream = fs.createReadStream(req.file.path);
 
-      // 1️⃣ Upload to OpenAI Files API
-      const uploaded = await client.files.create({
-        file: fileStream,
-        purpose: "assistants"
+      // 1️⃣ Upload file first
+      const uploadedFile = await client.files.create({
+        purpose: "assistants",
+        file: fs.createReadStream(req.file.path),
       });
 
-      const fileId = uploaded.id;
-
-      // 2️⃣ Send the file to GPT-5.1
-      const response = await client.chat.completions.create({
+      // 2️⃣ Ask GPT-5.1 to analyze it using Responses API
+      const response = await client.responses.create({
         model: "gpt-5.1",
-        messages: [
+        input: [
           {
             role: "user",
             content: [
-              { type: "text", text: "Analyze this file." },
-              { type: "input_file", file_id: fileId }
+              { type: "text", text: "Analyze this file and summarise it." },
+              { type: "file", file_id: uploadedFile.id }
             ]
           }
         ]
@@ -42,13 +43,13 @@ module.exports = async function handler(req, res) {
 
       return res.status(200).json({
         message: "File processed successfully",
-        file_id: fileId,
-        analysis: response.choices[0].message.content
+        file_id: uploadedFile.id,
+        analysis: response.output_text
       });
 
-    } catch (error) {
-      console.error(error);
-      return res.status(400).json({ error: error.toString() });
+    } catch (e) {
+      console.error("SERVER ERROR:", e);
+      return res.status(500).json({ error: e.message });
     }
   });
 };
