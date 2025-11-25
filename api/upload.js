@@ -16,27 +16,26 @@ module.exports = async function handler(req, res) {
     try {
       const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-      // 1️⃣ Upload file
+      // 1️⃣ Upload file to OpenAI
       const uploaded = await client.files.create({
         purpose: "assistants",
         file: fs.createReadStream(req.file.path)
       });
 
-      // 2️⃣ Use the Responses API (latest schema)
+      // 2️⃣ Send file for analysis via Responses API (correct 2025 schema)
       const response = await client.responses.create({
         model: "gpt-5.1",
         input: [
           {
-            type: "message",
             role: "user",
             content: [
               {
-                type: "text",
-                text: "Analyze this file and summarize it."
+                type: "input_text",
+                text: "Analyze this file and provide a detailed summary."
               },
               {
-                type: "item_reference",
-                item_id: uploaded.id   // REQUIRED — this is where your errors came from
+                type: "input_file",
+                file_id: uploaded.id
               }
             ]
           }
