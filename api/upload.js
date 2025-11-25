@@ -6,10 +6,10 @@ const upload = multer({
   dest: "/tmp",
   fileFilter: (req, file, cb) => {
     const allowed = [
+      "application/pdf",
       "text/csv",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
-      "application/vnd.ms-excel", // .xls
-      "application/pdf"
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     ];
     if (!allowed.includes(file.mimetype)) {
       return cb(new Error("Unsupported file type: " + file.mimetype));
@@ -24,37 +24,32 @@ module.exports = async function handler(req, res) {
   }
 
   upload(req, res, async (err) => {
-    if (err) {
-      return res.status(400).json({ error: err.message });
-    }
-
-    if (!req.file) {
-      return res.status(400).json({ error: "No file received" });
-    }
+    if (err) return res.status(400).json({ error: err.message });
+    if (!req.file) return res.status(400).json({ error: "No file received" });
 
     try {
       const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-      // STEP 1 — Upload file to OpenAI
-      const uploadedFile = await client.files.create({
+      // Upload file to OpenAI
+      const uploaded = await client.files.create({
         purpose: "assistants",
         file: fs.createReadStream(req.file.path)
       });
 
-      // STEP 2 — Create a response request using GPT-4.1
+      // Create a proper 5.x Responses request
       const response = await client.responses.create({
-        model: "gpt-4.1",
+        model: "gpt-4.1-mini",
         input: [
           {
             role: "user",
             content: [
               {
                 type: "input_text",
-                text: "Analyze this file (CSV or Excel) and produce a detailed summary."
+                text: "Analyze the uploaded file and summarize all key insights."
               },
               {
                 type: "input_file",
-                file_id: uploadedFile.id
+                file_id: uploaded.id    // <-- correct 5.x field
               }
             ]
           }
@@ -63,7 +58,7 @@ module.exports = async function handler(req, res) {
 
       return res.status(200).json({
         status: "success",
-        file_id: uploadedFile.id,
+        file_id: uploaded.id,
         output: response.output_text
       });
 
