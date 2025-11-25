@@ -2,9 +2,7 @@ const multer = require("multer");
 const fs = require("fs");
 const OpenAI = require("openai");
 
-const upload = multer({
-  dest: "/tmp",
-}).single("file");
+const upload = multer({ dest: "/tmp" }).single("file");
 
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
@@ -12,34 +10,34 @@ module.exports = async function handler(req, res) {
   }
 
   upload(req, res, async (err) => {
-    if (err) {
-      return res.status(400).json({ error: err.message });
-    }
-
-    if (!req.file) {
-      return res.status(400).json({ error: "No file received" });
-    }
+    if (err) return res.status(400).json({ error: err.message });
+    if (!req.file) return res.status(400).json({ error: "No file received" });
 
     try {
       const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-      // 1️⃣ Upload file to OpenAI
+      // 1️⃣ Upload the file to OpenAI
       const uploaded = await client.files.create({
         file: fs.createReadStream(req.file.path),
         purpose: "assistants"
       });
 
-      // 2️⃣ Ask the model to analyze the file using the Responses API
+      // 2️⃣ Call GPT-5.1 using the *new Responses API*
       const response = await client.responses.create({
-        model: "gpt-4.1",
+        model: "gpt-5.1",
         input: [
           {
-            type: "input_text",
-            text: "Analyze the uploaded file and give a detailed summary."
-          },
-          {
-            type: "input_file",
-            input_file_id: uploaded.id
+            role: "user",
+            content: [
+              {
+                type: "input_text",
+                text: "Analyze the uploaded file and give a detailed summary."
+              },
+              {
+                type: "input_file",
+                id: uploaded.id
+              }
+            ]
           }
         ]
       });
@@ -47,7 +45,7 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({
         status: "success",
         file_id: uploaded.id,
-        output: response.output_text
+        output: response.output[0].content[0].text
       });
 
     } catch (error) {
