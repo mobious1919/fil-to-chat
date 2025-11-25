@@ -4,27 +4,17 @@ const OpenAI = require("openai");
 
 const upload = multer({
   dest: "/tmp",
-  fileFilter: (req, file, cb) => {
-    const allowed = [
-      "text/csv",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "application/vnd.ms-excel",
-      "application/pdf"
-    ];
-    if (!allowed.includes(file.mimetype)) {
-      return cb(new Error("Unsupported file type: " + file.mimetype));
-    }
-    cb(null, true);
-  }
 }).single("file");
 
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Only POST allowed" });
-    }
+  }
 
   upload(req, res, async (err) => {
-    if (err) return res.status(400).json({ error: err.message });
+    if (err) {
+      return res.status(400).json({ error: err.message });
+    }
 
     if (!req.file) {
       return res.status(400).json({ error: "No file received" });
@@ -33,24 +23,23 @@ module.exports = async function handler(req, res) {
     try {
       const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-      // 1️⃣ Upload the file
+      // 1️⃣ Upload file to OpenAI
       const uploaded = await client.files.create({
-        purpose: "assistants",
-        file: fs.createReadStream(req.file.path)
+        file: fs.createReadStream(req.file.path),
+        purpose: "assistants"
       });
 
-      // 2️⃣ Request analysis from GPT-4.1
+      // 2️⃣ Ask the model to analyze the file using the Responses API
       const response = await client.responses.create({
-        model: "gpt-4.1-mini",
+        model: "gpt-4.1",
         input: [
           {
-            role: "user",
-            content: "Analyze this file and provide insights."
+            type: "input_text",
+            text: "Analyze the uploaded file and give a detailed summary."
           },
           {
-            file: {
-              file_id: uploaded.id
-            }
+            type: "input_file",
+            input_file_id: uploaded.id
           }
         ]
       });
