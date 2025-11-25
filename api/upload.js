@@ -30,36 +30,32 @@ module.exports = async function handler(req, res) {
     try {
       const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-      // Upload file to OpenAI
-      const uploaded = await client.files.create({
+      // 1️⃣ Upload file to OpenAI
+      const uploadedFile = await client.files.create({
         purpose: "assistants",
         file: fs.createReadStream(req.file.path)
       });
 
-      // Create a proper 5.x Responses request
+      // 2️⃣ Request analysis with new Responses API spec
       const response = await client.responses.create({
-        model: "gpt-4.1-mini",
+        model: "gpt-4.1",
         input: [
           {
+            type: "message",
             role: "user",
-            content: [
-              {
-                type: "input_text",
-                text: "Analyze the uploaded file and summarize all key insights."
-              },
-              {
-                type: "input_file",
-                file_id: uploaded.id    // <-- correct 5.x field
-              }
-            ]
+            content: "Analyze this file and return insights.",
+          },
+          {
+            type: "item_reference",
+            item_id: uploadedFile.id
           }
         ]
       });
 
       return res.status(200).json({
         status: "success",
-        file_id: uploaded.id,
-        output: response.output_text
+        file_id: uploadedFile.id,
+        result: response.output_text
       });
 
     } catch (error) {
